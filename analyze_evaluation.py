@@ -23,7 +23,16 @@ SCORE_COLUMNS = [
     "Overall_Score",
 ]
 
-
+def classify_score(score):
+    if score == 5:
+        return "Excellent"
+    elif score == 4:
+        return "Good"
+    elif score == 3:
+        return "Fair"
+    else:
+        return "Poor"
+        
 def main():
     folder = Path(__file__).parent
     file_path = folder / FILE_NAME
@@ -123,11 +132,37 @@ def main():
     else:
         lines.append("No validation issues found.")
 
+    
+    print("\nOVERALL SCORE CLASSIFICATION")
+    print("-" * 35)
+
+    categories = {
+        "Excellent": 0,
+        "Good": 0,
+        "Fair": 0,
+        "Poor": 0,
+    }
+
+    for row in rows:
+        try:
+            score = int(row["Overall_Score"])
+            if 1 <= score <= 5:
+                category = classify_score(score)
+                categories[category] += 1
+        except (ValueError, KeyError, TypeError):
+            continue
+
+    for category, count in categories.items():
+    print(f"{category}: {count}")
+    lines.append(f"{category}: {count}")
+
     report = "\n".join(lines) + "\n"
     report_path.write_text(report, encoding="utf-8")
 
     print(report)
     print(f"Report saved to: {REPORT_NAME}")
+
+
 
 
 if __name__ == "__main__":
