@@ -23,6 +23,7 @@ SCORE_COLUMNS = [
     "Overall_Score",
 ]
 
+
 def classify_score(score):
     if score == 5:
         return "Excellent"
@@ -32,7 +33,8 @@ def classify_score(score):
         return "Fair"
     else:
         return "Poor"
-        
+
+
 def main():
     folder = Path(__file__).parent
     file_path = folder / FILE_NAME
@@ -43,25 +45,33 @@ def main():
         print(f"Error: {FILE_NAME} was not found.")
         return
 
-    with file_path.open(
-        "r", encoding="utf-8-sig", newline=""
-    ) as file:
-        reader = csv.DictReader(file)
+    try:
+        with file_path.open(
+            "r", encoding="utf-8-sig", newline=""
+        ) as file:
+            reader = csv.DictReader(file)
 
-        if not reader.fieldnames:
-            print("Error: CSV file has no header.")
-            return
+            if not reader.fieldnames:
+                print("Error: CSV file has no header.")
+                return
 
-        missing_columns = [
-            col for col in REQUIRED_COLUMNS
-            if col not in reader.fieldnames
-        ]
+            missing_columns = [
+                col for col in REQUIRED_COLUMNS
+                if col not in reader.fieldnames
+            ]
 
-        if missing_columns:
-            print("Missing columns:", ", ".join(missing_columns))
-            return
+            if missing_columns:
+                print(
+                    "Missing columns: "
+                    + ", ".join(missing_columns)
+                )
+                return
 
-        rows = list(reader)
+            rows = list(reader)
+
+    except (OSError, csv.Error) as error:
+        print(f"Error reading CSV: {error}")
+        return
 
     if not rows:
         print("No evaluation records found.")
@@ -69,6 +79,12 @@ def main():
 
     seen_ids = set()
     valid_scores = {col: [] for col in SCORE_COLUMNS}
+    categories = {
+        "Excellent": 0,
+        "Good": 0,
+        "Fair": 0,
+        "Poor": 0,
+    }
 
     for row_number, row in enumerate(rows, start=2):
         record_id = (row.get("ID") or "").strip()
@@ -93,12 +109,20 @@ def main():
 
             try:
                 score = int(value)
+
                 if not 1 <= score <= 5:
                     raise ValueError
+
                 valid_scores[col].append(score)
+
+                if col == "Overall_Score":
+                    category = classify_score(score)
+                    categories[category] += 1
+
             except ValueError:
                 issues.append(
-                    f"Row {row_number}: Invalid {col} score: {value!r}"
+                    f"Row {row_number}: Invalid {col} "
+                    f"score: {value!r}"
                 )
 
     lines = [
@@ -122,6 +146,15 @@ def main():
 
     lines.extend([
         "",
+        "OVERALL SCORE CLASSIFICATION",
+        "-" * 40,
+    ])
+
+    for category, count in categories.items():
+        lines.append(f"{category}: {count}")
+
+    lines.extend([
+        "",
         "DATA VALIDATION",
         "-" * 40,
         f"Issues found: {len(issues)}",
@@ -132,37 +165,16 @@ def main():
     else:
         lines.append("No validation issues found.")
 
-    
-    print("\nOVERALL SCORE CLASSIFICATION")
-    print("-" * 35)
-
-    categories = {
-        "Excellent": 0,
-        "Good": 0,
-        "Fair": 0,
-        "Poor": 0,
-    }
-
-    for row in rows:
-        try:
-            score = int(row["Overall_Score"])
-            if 1 <= score <= 5:
-                category = classify_score(score)
-                categories[category] += 1
-        except (ValueError, KeyError, TypeError):
-            continue
-
-    for category, count in categories.items():
-    print(f"{category}: {count}")
-    lines.append(f"{category}: {count}")
-
     report = "\n".join(lines) + "\n"
-    report_path.write_text(report, encoding="utf-8")
+
+    try:
+        report_path.write_text(report, encoding="utf-8")
+    except OSError as error:
+        print(f"Error saving report: {error}")
+        return
 
     print(report)
     print(f"Report saved to: {REPORT_NAME}")
-
-
 
 
 if __name__ == "__main__":
